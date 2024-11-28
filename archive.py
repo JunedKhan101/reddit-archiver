@@ -1,6 +1,7 @@
 import praw
 import textwrap
 import configparser
+from datetime import datetime, timezone
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -21,6 +22,27 @@ submission.comments.replace_more(limit=None)
 
 with open("FILE_NAME.txt", "w", encoding="utf-8") as f:
     wrapper = textwrap.TextWrapper(width=80)
+
+    post_date = datetime.fromtimestamp(submission.created_utc, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+    media_urls = []
+    # Check for gallery posts
+    gallery_data = getattr(submission, 'gallery_data', None)
+    if gallery_data:
+        for item in submission.gallery_data['items']:
+            media_id = item['media_id']
+            if media_id in submission.media_metadata:
+                media_url = submission.media_metadata[media_id]['s']['u'].replace('&amp;', '&')
+                media_urls.append(media_url)
+    # Check for single media (e.g., images/videos directly in the post)
+    elif submission.is_reddit_media_domain and not gallery_data:
+        media_urls.append(submission.url)
+
+    if media_urls:
+        f.write("Media:\n")
+        for i, media_url in enumerate(media_urls, start=1):
+            f.write(f"  Media {i}: {media_url}\n")
+        f.write("\n")
 
     total_views = getattr(submission, "view_count", "Unavailable")
     upvote_ratio = getattr(submission, "upvote_ratio", "Unavailable")
